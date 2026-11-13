@@ -18,6 +18,7 @@ from .effort import simulate_effort, summarise_effort
 from .evaluate import bootstrap_ci, evaluate_ranker, response_rate_by_recency
 from .features import temporal_split
 from .models import RESUME_ONLY, RESUME_PLUS_ACTIVITY, fit_ranker, predict_scores
+from .resume_relevance import run_resume_relevance
 
 
 def run(n_candidates: int = 400, n_jobs: int = 120, seed: int = 42,
@@ -84,6 +85,20 @@ def run(n_candidates: int = 400, n_jobs: int = 120, seed: int = 42,
     manual = effort[effort["mode"] == "manual"]["minutes"].values
     assisted = effort[effort["mode"] == "assisted"]["minutes"].values
     results["effort_minutes_saved_mean"] = round(float(manual.mean() - assisted.mean()), 1)
+
+    # Idea 2, extended — cross-resume relevance: score agreement
+    # between two tailored resumes from the same candidate, with a
+    # threshold calibrated on synthetic pairs (see resume_relevance.py).
+    # This does not touch the NDCG / effort results above.
+    relevance = run_resume_relevance(
+        n_per_class=200, seed=seed, output_path=out / "resume_relevance.json"
+    )
+    results["resume_relevance"] = {
+        "threshold": relevance["threshold"],
+        "performance": relevance["performance"],
+        "distributions": relevance["distributions"],
+        "n_pairs": relevance["n_pairs"],
+    }
 
     # Save artefacts.
     pairs.to_csv(out / "pairs.csv", index=False)
